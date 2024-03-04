@@ -1,6 +1,5 @@
 /* Implementation of testing code for queue code */
 #include <assert.h>
-
 #include <errno.h>
 #include <getopt.h>
 #include <signal.h>
