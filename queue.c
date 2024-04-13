@@ -26,6 +26,7 @@ void q_free(struct list_head *head)
 {
     element_t *cur, *next;
     list_for_each_entry_safe (cur, next, head, list) {
+        free(cur->value);
         free(cur);
     }
     free(head);
@@ -47,17 +48,24 @@ bool q_insert_head(struct list_head *head, char *s)
 /* Insert an element at tail of queue */
 bool q_insert_tail(struct list_head *head, char *s)
 {
+    if (!head)
+        return false;
+    element_t *element = malloc(sizeof(element_t));
+    size_t len = strlen(s);
+    element->value = malloc(len + 1);
+    strncpy(element->value, s, len + 1);
+    list_add_tail(&element->list, head);
     return true;
 }
 
 /* Remove an element from head of queue */
 element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
 {
-    if (!head || list_empty(head)) {
+    if (!head || list_empty(head))
         return NULL;
-    }
     element_t *eleptr = list_first_entry(head, element_t, list);
-    strncpy(sp, eleptr->value, bufsize);
+    if (sp)
+        strncpy(sp, eleptr->value, bufsize);
     list_del_init(&eleptr->list);
     return eleptr;
 }
@@ -65,7 +73,13 @@ element_t *q_remove_head(struct list_head *head, char *sp, size_t bufsize)
 /* Remove an element from tail of queue */
 element_t *q_remove_tail(struct list_head *head, char *sp, size_t bufsize)
 {
-    return NULL;
+    if (!head || list_empty(head))
+        return NULL;
+    element_t *eleptr = list_last_entry(head, element_t, list);
+    if (sp)
+        strncpy(sp, eleptr->value, bufsize);
+    list_del_init(&eleptr->list);
+    return eleptr;
 }
 
 /* Return number of elements in queue */
@@ -85,7 +99,19 @@ int q_size(struct list_head *head)
 /* Delete the middle node in queue */
 bool q_delete_mid(struct list_head *head)
 {
-    // https://leetcode.com/problems/delete-the-middle-node-of-a-linked-list/
+    if (!head || list_empty(head))
+        return false;
+    struct list_head *slow;
+    struct list_head *fast = head->next;
+    list_for_each (slow, head) {
+        if (fast->next == head || fast->next->next == head) {
+            list_del_init(slow);
+            free(list_entry(slow, element_t, list)->value);
+            free(list_entry(slow, element_t, list));
+            return true;
+        }
+        fast = fast->next->next;
+    }
     return true;
 }
 
