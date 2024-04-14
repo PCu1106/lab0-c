@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,8 +27,7 @@ void q_free(struct list_head *head)
 {
     element_t *cur, *next;
     list_for_each_entry_safe (cur, next, head, list) {
-        free(cur->value);
-        free(cur);
+        q_release_element(cur);
     }
     free(head);
 }
@@ -106,8 +106,7 @@ bool q_delete_mid(struct list_head *head)
     list_for_each (slow, head) {
         if (fast->next == head || fast->next->next == head) {
             list_del_init(slow);
-            free(list_entry(slow, element_t, list)->value);
-            free(list_entry(slow, element_t, list));
+            q_release_element(list_entry(slow, element_t, list));
             return true;
         }
         fast = fast->next->next;
@@ -125,11 +124,30 @@ bool q_delete_dup(struct list_head *head)
 /* Swap every two adjacent nodes */
 void q_swap(struct list_head *head)
 {
-    // https://leetcode.com/problems/swap-nodes-in-pairs/
+    struct list_head *first, *second;
+    list_for_each_safe (first, second, head) {
+        if (first == head || second == head)
+            return;
+        list_del(first);
+        first->prev = second;
+        first->next = second->next;
+        second->next = first;
+        first->next->prev = first;
+        second = first->next;
+    }
 }
 
 /* Reverse elements in queue */
-void q_reverse(struct list_head *head) {}
+void q_reverse(struct list_head *head)
+{
+    if (!head || list_empty(head))
+        return;
+    struct list_head *cur, *next;
+    list_for_each_safe (cur, next, head) {
+        list_del(cur);
+        list_add(cur, head);
+    }
+}
 
 /* Reverse the nodes of the list k at a time */
 void q_reverseK(struct list_head *head, int k)
@@ -137,8 +155,49 @@ void q_reverseK(struct list_head *head, int k)
     // https://leetcode.com/problems/reverse-nodes-in-k-group/
 }
 
+struct list_head *mergeTwoLists(struct list_head *L1, struct list_head *L2)
+{
+    struct list_head *head = NULL, **ptr = &head, **node;
+
+    for (node = NULL; L1 && L2; *node = (*node)->next) {
+        char *str1 = list_entry(L1, element_t, list)->value;
+        char *str2 = list_entry(L2, element_t, list)->value;
+        node = strcmp(str1, str2) < 0 ? &L1 : &L2;
+        *ptr = *node;
+        ptr = &(*ptr)->next;
+    }
+    *ptr = (struct list_head *) ((uintptr_t) L1 | (uintptr_t) L2);
+    return head;
+}
+
+struct list_head *merge_sort(struct list_head *head)
+{
+    if (!head || !head->next)
+        return head;
+    struct list_head *slow = head;
+    for (struct list_head *fast = head->next; fast && fast->next;
+         fast = fast->next->next)
+        slow = slow->next;
+    struct list_head *mid = slow->next;
+    slow->next = NULL;
+    struct list_head *left = merge_sort(head), *right = merge_sort(mid);
+    return mergeTwoLists(left, right);
+}
+
 /* Sort elements of queue in ascending/descending order */
-void q_sort(struct list_head *head, bool descend) {}
+void q_sort(struct list_head *head, bool descend)
+{
+    if (!head || list_empty(head) || list_is_singular(head))
+        return;
+    head->prev->next = NULL;
+    head->next = merge_sort(head->next);
+    struct list_head *node;
+    for (node = head; node->next != NULL; node = node->next) {
+        node->next->prev = node;
+    }
+    node->next = head;
+    head->prev = node;
+}
 
 /* Remove every node which has a node with a strictly less value anywhere to
  * the right side of it */
